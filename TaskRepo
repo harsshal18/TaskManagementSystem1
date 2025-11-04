@@ -1,0 +1,80 @@
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data.SqlClient;
+using System.Threading.Tasks;
+using Dapper;
+using TaskManagementSystem1.Models;
+
+namespace TaskManagementSystem1.Repositories
+{
+    public class TaskRepository : ITaskRepository
+    {
+        private readonly string _connectionString;
+
+        public TaskRepository()
+        {
+            _connectionString = ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString;
+        }
+
+        public async Task<IEnumerable<TaskModel>> GetAllAsync(string status = null, string assignedTo = null)
+        {
+            using (var con = new SqlConnection(_connectionString))
+            {
+                string sql = "SELECT * FROM Tasks WHERE IsActive = 1";
+
+                if (!string.IsNullOrEmpty(status))
+                    sql += " AND Status = @Status";
+
+                if (!string.IsNullOrEmpty(assignedTo))
+                    sql += " AND AssignedTo = @AssignedTo";
+
+                sql += " ORDER BY TaskId DESC";
+
+                return await con.QueryAsync<TaskModel>(sql, new { Status = status, AssignedTo = assignedTo });
+            }
+        }
+
+        public async Task<TaskModel> GetByIdAsync(int id)
+        {
+            using (var con = new SqlConnection(_connectionString))
+            {
+                return await con.QueryFirstOrDefaultAsync<TaskModel>(
+                    "SELECT * FROM Tasks WHERE TaskId = @id", new { id });
+            }
+        }
+
+        public async Task<int> AddAsync(TaskModel model)
+        {
+            using (var con = new SqlConnection(_connectionString))
+            {
+                string sql = @"INSERT INTO Tasks (Title, Description, AssignedTo, DueDate, Status, IsActive, CreatedOn)
+                               VALUES (@Title, @Description, @AssignedTo, @DueDate, @Status, 1, GETDATE());
+                               SELECT CAST(SCOPE_IDENTITY() AS INT)";
+                return await con.ExecuteScalarAsync<int>(sql, model);
+            }
+        }
+
+        public async Task<bool> UpdateAsync(TaskModel model)
+        {
+            using (var con = new SqlConnection(_connectionString))
+            {
+                string sql = @"UPDATE Tasks 
+                               SET Title=@Title, Description=@Description,
+                                   AssignedTo=@AssignedTo, DueDate=@DueDate, Status=@Status
+                               WHERE TaskId=@TaskId";
+                var rows = await con.ExecuteAsync(sql, model);
+                return rows > 0;
+            }
+        }
+
+        public async Task<bool> SoftDeleteAsync(int id)
+        {
+            using (var con = new SqlConnection(_connectionString))
+            {
+                string sql = "UPDATE Tasks SET IsActive=0 WHERE TaskId=@id";
+                var rows = await con.ExecuteAsync(sql, new { id });
+                return rows > 0;
+            }
+        }
+    }
+}

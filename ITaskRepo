@@ -1,0 +1,15 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using TaskManagementSystem1.Models;
+
+namespace TaskManagementSystem1.Repositories
+{
+    public interface ITaskRepository
+    {
+        Task<IEnumerable<TaskModel>> GetAllAsync(string status = null, string assignedTo = null);
+        Task<TaskModel> GetByIdAsync(int id);
+        Task<int> AddAsync(TaskModel task);
+        Task<bool> UpdateAsync(TaskModel task);
+        Task<bool> SoftDeleteAsync(int id);
+    }
+}
